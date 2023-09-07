@@ -1,0 +1,339 @@
+---
+title: "GAEMM parameter tuning"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+    social: menu
+    source_code: embed
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(plotly)
+library(GGally)
+library(tidyverse)
+library(reshape2)
+library(viridis)
+library(jcolors)
+library(gridExtra)
+library(ggridges)
+library(flexdashboard)
+load("basemodelparams.rda")
+load("tuningdat.rda")
+tuningdat$paramvalue <- factor(tuningdat$paramvalue)
+
+tune_plotparam <- function(data, y_param, logfitness = F){
+  if(logfitness){
+    fitnessvars <- grep("fitness", y_param, value = TRUE)
+    data[fitnessvars] <- log(data[fitnessvars])
+  }
+  plot <- ggplot(aes_string(x = "generation", y = y_param, color = "paramvalue", group = "paramvalue"),
+             data = data) +
+      facet_wrap(~iteration) + 
+      xlab(label = "generation") +
+      geom_point(size = 0.5) +
+      geom_line(alpha = 0.5) +
+      theme_classic()
+      #theme(legend.position = "none")
+  # }
+  # legend <- cowplot::get_legend(plotlist[[1]]
+  #                               + theme(legend.position = "bottom"))
+  # plots <- cowplot::plot_grid(plotlist[[1]], plotlist[[2]], nrow = 1)
+  # 
+  # if(length(y_params > 2)){
+  # 
+  #   plotgrid <- cowplot::plot_grid(plotlist = plotlist[3:length(plotlist)], ncol = 2)
+  #   plots <- cowplot::plot_grid(plots, plotgrid, legend,
+  #                               ncol = 1, rel_heights = c(1, 3, 0.2))
+  return(plot)
+  # plots
+}
+
+# tune_plotpath <- function(data, modelparams, nslices = 10){
+#   if(nslices != 0) {
+#     v_seq <- Vectorize(seq.default)
+#     maxgens <- data %>%
+#       group_by(paramvalue) %>%
+#       summarise(maxgens = max(generation), .groups = "keep") %>%
+#       pull(var = maxgens)
+#     slicegens <- floor(v_seq(1, maxgens, length.out = nslices))
+# 
+#     data <- data %>%
+#       mutate(gid = group_indices(.,paramvalue)) %>%
+#       group_by(paramvalue) %>%
+#       group_modify( ~ filter(.x, generation %in% slicegens[,gid])) %>%
+#       as.data.frame()
+#   }
+# 
+#   locdata <- getloc_all(data, modelparams)
+#   locdata$sids <- 1:nrow(locdata)
+#   locdata <- locdata[, -grep("step", colnames(locdata))]
+#   stepdata <- gather(locdata, "step", "location", grep("loc", colnames(locdata)))
+#   stepdata$step <- as.integer(stringr::str_remove(stepdata$step, "loc"))
+#   movementplot <- ggplot(aes(x = step, y = location, color = paramvalue,
+#                              alpha = generation, group = sids), data = stepdata) +
+#     facet_wrap(~iteration) +
+#     geom_line() +
+#     scale_alpha(range = c(0.2,1)) +
+#     #guides(alpha = FALSE) +
+#     labs(color = unique(data$tuningparam)) +
+#     theme_classic()
+#   movementplot
+# }
+
+tune_plotspm <- function(data, y_params = c("nunique","kappa", "m", "v", "km", "z", "l_b","uph","mig_time", "nb_length"), nslices = 10, modelparams = basemodelparams, logfitness = F){
+
+  #data <- getloc_all(data,modelparams)
+
+   if(nslices != 0) {
+    v_seq <- Vectorize(seq.default)
+    maxgens <- data %>%
+      group_by(paramvalue) %>%
+      summarise(maxgens = max(generation), .groups = "keep") %>%
+      pull(var = maxgens)
+    slicegens <- floor(v_seq(1, maxgens, length.out = nslices))
+
+    data <- data %>%
+      mutate(gid = group_indices(.,paramvalue)) %>%
+      group_by(paramvalue) %>%
+      group_modify( ~ filter(.x, generation %in% slicegens[,gid])) %>%
+      as.data.frame()
+  }
+
+
+  if(logfitness){
+    fitnessvars <- grep("fitness", y_params, value = TRUE)
+    data[fitnessvars] <- log(data[fitnessvars])
+  }
+
+  my_dens <- function(data, mapping, ...) {
+    ggplot(data = data, mapping=mapping) +
+      #geom_density(..., alpha = 0.7, color = NA, aes_string(fill = paramvalue))
+      aes_string(fill = "paramvalue", color = "paramvalue", alpha = "generation", group = "paramvalue", y = "paramvalue") +
+      geom_density_ridges(aes(height =..ndensity..), rel_min_height = 0.01, scale = 2, alpha = 0.7) +
+      theme_ridges()
+  }
+
+  plot <- ggpairs(data, columns = c(y_params #,tail(grep("loc", names(data), value = TRUE), 1)
+                                    ), mapping = aes_string(color = "paramvalue", alpha = "generation", group = "iteration"),
+                  #lower = list(combo = wrap("summarise_by", size = 2)),
+                  #upper = list(continuous = wrap(my_fn, paramvalue = paramvalue))) +
+                  upper = "blank",
+                  diag = list(continuous = wrap(my_dens)),
+                  legend = length(y_params) + 2) +
+    theme_classic()
+  plot
+}
+```
+
+Sidebar {.sidebar}
+-----------------------------------------------------------------------
+
+### Select a dataset
+
+```{r}
+selectInput("paramname", label = "Tuning parameter:",
+            choices = c("mutationrate","generation", "replacerate", "crossoverrate", "popsize"), selected = "mutationrate")
+```
+
+### Plot parameters
+
+```{r}
+checkboxGroupInput(
+  "y_params",
+  "Parameters to plot:",
+  c("Max fitness" = "maxfitness", 
+    "Mean fitness" = "meanfitness", 
+    "Fitness variance" = "varfitness",
+    "Number of unique solutions" = "nunique", 
+    "Kappa of solution with max fitness" = "kappa", 
+    "km of solution with max fitness" = "km", 
+    "m of solution with max fitness" = "m",
+    "z of solution with max fitness" = "z",
+    "l_b of solution with max fitness" = "l_b",
+    "uph of solution with max fitness" = "uph",
+    "a_b of solution with max fitness" = "a_bp",
+    "mig_time of solution with max fitness" = "mig_time",
+    "nb_length of solution with max fitness" = "nb_length"
+    ),
+  selected = c("maxfitness", "meanfitness", "varfitness",
+                                       "nunique", "kappa", "km", "m", "z", "l_b","uph", "a_b","mig_time", "nb_length")
+)
+```
+
+### Plot display options
+
+```{r}
+checkboxInput("logfitness", "Log-scale fitness", value = TRUE)
+
+numericInput("nslices", "# of generational slices:", value = 0, min = 1, max = basemodelparams$generations)
+```
+
+
+
+Row {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+```{r}
+SelectedData <- reactive({
+  subset(tuningdat, paramname == input$paramname)
+  })
+
+reactive({
+  validate(need(!is.null(input$y_params), 
+  'Check at least one parameter!'))
+  all <- c("maxfitness", "meanfitness", "varfitness","nunique", "kappa", "km", "m", "z", "l_b","uph","a_b","mig_time", "nb_length")
+  missing <- !(all %in% input$y_params)
+  if(any(missing)){
+    remove <- all[missing]
+    SelectedData <- SelectedData()[, !names(SelectedData()) %in% remove]
+  }
+})
+```
+
+### Max fitness
+```{r}
+renderPlot({
+  req("maxfitness" %in% input$y_params)
+  tune_plotparam(SelectedData(), y_param = "maxfitness", logfitness = input$logfitness) +
+    ggtitle(input$paramname)
+})
+```
+
+### Mean fitness
+```{r}
+renderPlot({
+  req("meanfitness" %in% input$y_params)
+  tune_plotparam(SelectedData(), y_param = "meanfitness", logfitness = input$logfitness) +
+    ggtitle(input$paramname)
+})
+```
+
+### Fitness variance
+```{r}
+renderPlot({
+  req("varfitness" %in% input$y_params)
+  tune_plotparam(SelectedData(), y_param = "varfitness", logfitness = input$logfitness) +
+    ggtitle(input$paramname)
+})
+
+```
+
+### Uniques
+```{r}
+renderPlot({
+  req("nunique" %in% input$y_params)
+  tune_plotparam(SelectedData(), y_param = "nunique", logfitness = input$logfitness) +
+    ggtitle(input$paramname)
+})
+```
+
+### Kappa
+```{r}
+renderPlot({
+  req("kappa" %in% input$y_params)
+  tune_plotparam(SelectedData(), y_param = "kappa", logfitness = input$logfitness) +
+    ggtitle(input$paramname)
+})
+```
+
+### km
+```{r}
+renderPlot({
+  req("km" %in% input$y_params)
+  tune_plotparam(SelectedData(), y_param = "km", logfitness = input$logfitness) +
+    ggtitle(input$paramname)
+})
+```
+
+### m
+```{r}
+renderPlot({
+  req("m" %in% input$y_params)
+  tune_plotparam(SelectedData(), y_param = "m", logfitness = input$logfitness) +
+    ggtitle(input$paramname)
+})
+```
+
+### z
+```{r}
+renderPlot({
+  req("m" %in% input$y_params)
+  tune_plotparam(SelectedData(), y_param = "z", logfitness = input$logfitness) +
+    ggtitle(input$paramname)
+})
+```
+
+### l_b
+```{r}
+renderPlot({
+  req("m" %in% input$y_params)
+  tune_plotparam(SelectedData(), y_param = "l_b", logfitness = input$logfitness) +
+    ggtitle(input$paramname)
+})
+```
+
+### uph
+```{r}
+renderPlot({
+  req("m" %in% input$y_params)
+  tune_plotparam(SelectedData(), y_param = "uph", logfitness = input$logfitness) +
+    ggtitle(input$paramname)
+})
+```
+
+### a_b
+```{r}
+renderPlot({
+  req("m" %in% input$y_params)
+  tune_plotparam(SelectedData(), y_param = "a_b", logfitness = input$logfitness) +
+    ggtitle(input$paramname)
+})
+```
+### mig_time
+```{r}
+renderPlot({
+  req("m" %in% input$y_params)
+  tune_plotparam(SelectedData(), y_param = "mig_time", logfitness = input$logfitness) +
+    ggtitle(input$paramname)
+})
+```
+
+### nb_length
+```{r}
+renderPlot({
+  req("m" %in% input$y_params)
+  tune_plotparam(SelectedData(), y_param = "nb_length", logfitness = input$logfitness) +
+    ggtitle(input$paramname)
+})
+```
+
+
+<!-- Row -->
+<!-- ----------------------------------------------------------------------- -->
+
+<!-- ### Movement paths -->
+
+<!-- ```{r} -->
+<!-- renderPlot({ -->
+<!--   tune_plotpath(SelectedData(), modelparams = basemodelparams, nslices = input$nslices) + -->
+<!--     ggtitle(input$paramname) -->
+<!--   }) -->
+<!-- ``` -->
+
+Row
+-----------------------------------------------------------------------
+
+### Scatterplot Matrix
+
+```{r }
+#actionButton('plotspm', 'Generate plot')https://tenor.com/view/travel-late-judy-garland-gif-24586556
+# renderPlot({
+#   #req(input$plotspm)
+#   tune_plotspm(SelectedData(), y_params = input$y_params, nslices = input$nslices, modelparams = basemodelparams) +
+#     ggtitle(input$paramname)
+# })
+```
+
+> This plot takes time to render. Be patient!
