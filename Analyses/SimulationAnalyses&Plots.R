@@ -1,0 +1,1396 @@
+## ANALYSES AND SIMULATION EXPERIMENT
+## AK Pierce 2023
+
+library(data.table)
+library(ggforce)
+library(ggalt)
+library(geomtextpath)
+library(wesanderson)
+library(patchwork)
+library(cowplot)
+library(factoextra)
+library(ggfortify)
+library(ggpmisc)
+library(tidyverse)
+library(ggthemes)
+library(fontawesome)
+library(ggnewscale)
+library(ggh4x)
+library(ggrepel)
+library(ggtext)
+library(corrplot)
+
+# load IBM model scripts for in silica experiment
+source("./R/expendenergy.R")
+source("./R/move.R")
+source("./R/reproduce.R")
+source("./R/randomizetraits.R")
+source("./R/GAEMM.R")
+source("./R/seasonalworld.R")
+source("./R/egg_vals.R")
+source("./R/checkstates.R")
+
+# general model params for use in silica experiment
+
+modelparams <- list(worldsize = 180,
+                    popsize = 2000,
+                    steps = 365,
+                    generations = 200,
+                    kappa_min = 0.01,
+                    kappa_max = 0.99,
+                    maxmoves = 45,
+                    e_traits = c("kappa", "m", "v", "g", "z", "l_b","uph"),
+                    m_traits = c("mig_time", "nb_length", "a_b"),
+                    startloc = 80,
+                    endloc = -80,
+                    replacerate = 1,
+                    crossoverrate = 0.5,
+                    mutationrate = 0.5,
+                    selectiontype = "sus",
+                    niching = T,
+                    movement = F,
+                    meanrange = c(0.6,0.5))
+
+# seasonality color palette
+pal_3 <- wes_palette("Darjeeling1", 3)
+
+# read in data
+dftop <- read_rds("./data/dftop.Rds")
+dfsteps <- read_rds("./data/dfsteps.Rds")
+
+## Fig 2 Movement path and energy plots
+
+# plot of high seasonality movement paths
+mph <-
+  dfsteps %>%
+  filter(movetype == "M") %>%
+  filter(bseason == "HS") %>%
+  ggplot() +
+  geom_hline(yintercept = c(80, -80), color = pal_3[1], size = 1, alpha =
+               0.49) +
+  geom_hline(yintercept = c(40, -40), color = pal_3[2], size = 1, alpha = 0.49) +
+  geom_hline(yintercept = 0, color = pal_3[3], size = 1, alpha = 0.49) +
+  geom_path(aes(x = step, y = loc, group = ID), linewidth = 1) +
+  scale_alpha(guide = "none") +
+  scale_linewidth(range = c(0.1,1.5), guide = 'none') +
+  scale_y_continuous("",
+                     breaks = seq(from = -100, to = 100, by = 20),
+                     position = "left") +
+  theme_half_open() +
+  theme(panel.background = element_blank(),
+        panel.grid.major.y = element_line(color = "grey90"),
+        strip.background = element_rect(fill = "grey90", color = NA),
+        strip.text = element_text(face = 2, size = 12),
+        axis.title.x = element_blank(),
+        strip.switch.pad.wrap = unit(0.02, "npc"),
+        strip.placement = "outside",
+        strip.background.y = element_blank(),
+        plot.title = element_text(face = "bold"),
+  )
+
+# plot of mid seasonality movement paths
+mpm <-
+  dfsteps %>%
+  filter(movetype == "M") %>%
+  filter(bseason == "MS") %>%
+  ggplot() +
+  geom_hline(yintercept = c(80, -80), color = pal_3[1], size = 1, alpha =
+               0.49) +
+  geom_hline(yintercept = c(40, -40), color = pal_3[2], size = 1, alpha = 0.49) +
+  geom_hline(yintercept = 0, color = pal_3[3], size = 1, alpha = 0.49) +
+  #geom_path(aes(x = step, y = loc, group = ID, linewidth = dist)) +
+  geom_path(aes(x = step, y = loc, group = ID), linewidth = 1) +
+  #geom_text(data = aorb, aes(x = x, y = y, label = label), size = 5, vjust = -0.5, fontface = 2) +
+  #scale_color_viridis_d( direction = 1, end = 0.7, guide = "none") +
+  scale_alpha(guide = "none") +
+  scale_linewidth(range = c(0.1,1.5), guide = 'none') +
+  scale_y_continuous("",
+                     breaks = seq(from = -100, to = 100, by = 20), position = "left") +
+  scale_x_continuous("Day") +
+  theme_half_open() +
+  theme(panel.background = element_blank(),
+        panel.grid.major.y = element_line(color = "grey90"),
+        strip.background = element_rect(fill = "grey90", color = NA),
+        strip.text = element_text(face = 2, size = 12),
+        axis.title.x = element_blank(),
+        strip.switch.pad.wrap = unit(0.02, "npc"),
+        strip.placement = "outside",
+        strip.background.y = element_blank(),
+        plot.title = element_text(face = "bold"),
+  )
+
+# pull out stationary data to make curves with later
+nm <- dfsteps %>%
+  group_by(migtype, step) %>%
+  summarise(ss = mean(ss), es = mean(es), migtype = migtype, mdist = mdist, subtype = subtype, wseason = wseason, bseason = bseason, etype = etype, movetype = movetype) %>%
+  ungroup() %>%
+  distinct()
+
+# reorder and reformat group labels for plots
+elabels <- data.frame(
+  migtype = c("NM_HS","SD_MS","MD_AS","LD_MS","LD_HS",
+              "NM_MS","SD_AS","MD_MS","NM_AS")) %>%
+  mutate(
+    migtype = factor(migtype,
+                     levels = c("NM_HS","SD_MS","MD_AS","LD_MS","LD_HS",
+                                "NM_MS","SD_AS","MD_MS","NM_AS"))) %>%
+  mutate(
+    etype = case_match(migtype,
+                       c("LD_HS", "LD_MS", "MD_MS") ~ "Buffer",
+                       c("MD_AS", "SD_MS", "SD_AS") ~ "Mitigate",
+                       c("NM_AS", "NM_MS", "NM_HS") ~ "Cope"
+    )) %>%
+  mutate(
+    movecost = case_match(migtype,
+                          "LD_HS" ~ "Highest",
+                          "LD_MS" ~ "High",
+                          c("MD_AS", "MD_MS") ~ "Moderate",
+                          c("SD_MS", "SD_AS") ~ "Low",
+                          c("NM_AS", "NM_MS", "NM_HS") ~ "None"
+    )) %>%
+  mutate(
+    bseason = case_match(migtype,
+                         c("NM_HS","SD_MS","MD_AS","LD_MS","LD_HS") ~ "HS",
+                         c("NM_MS","SD_AS", "MD_MS") ~ "MS",
+                         c("NM_AS") ~ "AS",
+    )) %>%
+  mutate(bseason = factor(bseason, levels = c("HS","MS","AS"))) %>%
+  mutate(
+    elabel = paste0("ΔE: ", etype)) %>%
+  mutate(
+    mlabel = paste0("Movement cost: ", movecost)) %>%
+  mutate(movetype = case_when(
+    migtype == "LD_HS" ~ "M",
+    migtype == "LD_MS" ~"M",
+    migtype == "MD_AS" ~ "M",
+    migtype == "MD_MS" ~ "M",
+    migtype == "SD_AS" ~ "M",
+    migtype == "SD_MS" ~ "M",
+    migtype == "NM_HS" ~ "NM",
+    migtype == "NM_MS" ~ "NM",
+    migtype == "NM_AS" ~ "NM"
+  ))
+
+# function to build energy over time plots for each mig. strategy
+energyplot <- function(group, sscol, escol, lw){
+  ggplot(dfsteps %>%
+           filter(migtype == group)) +
+
+    geom_ribbon(aes(x = step, ymax = f, ymin = ifelse(f > ss, ss, f), group = ID),
+                fill = "black", stat = "identity", position = "identity", alpha = 0.1) +
+
+    geom_path(data = nm %>%
+                filter(migtype == group),
+              aes(x = step, y = es), color = escol, linewidth = 2, alpha = 0.49) +
+
+    geom_path(data = nm %>%
+                filter(migtype == group),
+              aes(x = step, y = ss), color = sscol, linewidth = 2) +
+
+    geom_path(aes(x = step, y = f, group = ID), linewidth = lw, color = "black") +
+
+    geom_path(aes(x = step, y = mean(f), group = ID), linewidth = 0.8, linetype = "dashed", color = "black") +
+    geom_path(aes(x = step, y = mean(ss), group = ID), linewidth = 0.8, linetype = "dashed", color = sscol) +
+    geom_text(data = elabels %>%
+                filter(migtype == group),
+              aes(label = elabel),
+              fontface = "bold", hjust = 0, x = 10, y = 0.2, color = "black", size = 4.5) +
+    scale_y_continuous(breaks = seq(0.25, 1, length.out = 4), position = "right",
+                       labels = seq(0.25, 1, length.out = 4),
+                       limits = c(0,1.001),
+                       expand = expansion(add = c(0,0.05))) +
+    scale_x_continuous(expand = expansion(add = c(0.05,0)), guide = "none") +
+    theme_half_open()  +
+    theme(
+      panel.grid = element_blank(),
+      strip.text = element_blank(),
+      legend.position = "none",
+      panel.grid.major.y = element_line(color = "grey90"),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      panel.background = element_blank(),
+      plot.title = element_text(face = "bold"),
+      axis.title = element_text(size = 12),
+      plot.margin = margin(0,0,0,0)
+    )
+}
+
+# group together high breeding seasonality plots
+hs <- Map(energyplot,
+          group = list("SD_MS","MD_AS","LD_MS","LD_HS"),
+          sscol = pal_3[1],
+          escol = c(pal_3[2],pal_3[3],pal_3[2],pal_3[1]),
+          lw = 1)
+
+# group together mid breeding seasonality plots
+ms <- Map(energyplot,
+          group = list("SD_AS","MD_MS"),
+          sscol = pal_3[2],
+          escol = c(pal_3[3],pal_3[2]),
+          lw = 1)
+
+#stationary energy plots
+nmp <- Map(energyplot,
+           group = list("NM_HS","NM_MS","NM_AS"),
+           sscol = pal_3,
+           escol = c(pal_3[3],pal_3[2],pal_3[1]),
+           lw = 1)
+
+# Make subplots grobs for more precise alignment using annotations
+g1 <- as_grob(hs[[1]])
+g2 <- as_grob(hs[[2]])
+g3 <- as_grob(hs[[3]])
+g4 <- as_grob(hs[[4]])
+
+g5 <-  dfsteps %>%
+  filter(movetype == "M") %>%
+  filter(bseason == "HS") %>%
+  ggplot(aes(x = step, y = loc, group = ID)) +
+  geom_path(aes(x = step, y = loc, group = ID), linewidth = 1, color = NA) +
+  ggtitle("") +
+  scale_x_continuous() +
+  scale_y_continuous(guide = "none") +
+  theme_half_open()  +
+  theme(panel.background = element_blank(),
+        strip.text = element_text(face = 2, size = 12),
+        strip.switch.pad.wrap = unit(0.02, "npc"),
+        strip.placement = "outside",
+        strip.background.y = element_blank(),
+        plot.title = element_text(face = "bold"),
+        axis.title = element_blank()
+  )
+
+g5 <- as_grob(g5)
+
+# Line up high seasonality grobs into a new plot
+hsg <- dfsteps %>%
+  filter(movetype == "M") %>%
+  filter(bseason == "HS") %>%
+  ggplot(aes(x = step, y = loc, group = ID)) +
+  geom_path(aes(x = step, y = loc, group = ID), linewidth = 1, color = NA) +
+  annotation_custom(grob = g1,
+                    xmin = 0, ymin = 40, ymax = 80) +
+  annotation_custom(grob = g2,
+                    xmin = 0, ymin = 00, ymax = 40) +
+  annotation_custom(grob = g3,
+                    xmin = 0, ymin = -40, ymax = 00) +
+  annotation_custom(grob = g4,
+                    xmin = 0, ymin = -40, ymax = -80) +
+  # annotation_custom(grob = g5, xmax = 365, ymax = -87) +
+  ggtitle("Energy Available") +
+  scale_x_continuous(guide = "none") +
+  scale_y_continuous(guide = "none") +
+  theme_half_open()  +
+  theme(panel.background = element_blank(),
+        strip.text = element_text(face = 2, size = 12),
+        strip.switch.pad.wrap = unit(0.02, "npc"),
+        strip.placement = "outside",
+        strip.background.y = element_blank(),
+        plot.title = element_text(face = "bold"),
+        axis.title = element_blank()
+  )
+
+
+# mid seasonality grobs
+
+g1b <- as_grob(ms[[1]])
+g2b <- as_grob(ms[[2]])
+g3b <-  dfsteps %>%
+  filter(movetype == "M") %>%
+  filter(bseason == "MS") %>%
+  ggplot(aes(x = step, y = loc, group = ID)) +
+  geom_path(aes(x = step, y = loc, group = ID), linewidth = 1, color = NA) +
+  ggtitle("") +
+  scale_x_continuous() +
+  scale_y_continuous(guide = "none") +
+  theme_half_open()  +
+  theme(panel.background = element_blank(),
+        strip.text = element_text(face = 2, size = 12),
+        strip.switch.pad.wrap = unit(0.02, "npc"),
+        strip.placement = "outside",
+        strip.background.y = element_blank(),
+        plot.title = element_text(face = "bold"),
+        axis.title = element_blank()
+  )
+g3b <- as_grob(g3b)
+
+# Line up mid seasonality grobs into a new plot
+msg <- dfsteps %>%
+  filter(movetype == "M") %>%
+  filter(bseason == "HS") %>%
+  ggplot(aes(x = step, y = loc, group = ID)) +
+  geom_path(aes(x = step, y = loc, group = ID), linewidth = 1, color = NA) +
+  annotation_custom(grob = g1b,
+                    xmin = 0, ymin = 00, ymax = 40) +
+  annotation_custom(grob = g2b,
+                    xmin = 0, ymin = -40, ymax = 00) +
+  annotation_custom(grob = g3b, xmax = 365, ymax = -87) +
+  scale_x_continuous(guide = "none") +
+  scale_y_continuous(guide = "none") +
+  theme_half_open()  +
+  theme(panel.background = element_blank(),
+        strip.text = element_text(face = 2, size = 12),
+        strip.switch.pad.wrap = unit(0.02, "npc"),
+        strip.placement = "outside",
+        strip.background.y = element_blank(),
+        plot.title = element_text(face = "bold"),
+        axis.title = element_blank()
+  )
+
+# group up path and energy plots by breeding seasonality
+hsgrid <-
+  plot_grid(
+    mph + ggtitle("Movement Path") + scale_x_continuous(guide = "none"),
+    hsg,
+    ncol = 2, align = "hv", rel_widths = c(0.5,0.5))
+
+msgrid <-
+  plot_grid(
+    mpm,
+    msg,
+    ncol = 2, align = "hv", rel_widths = c(0.5,0.5))
+
+# add both sets of plots to whole
+meplot <- plot_grid(hsgrid, msgrid, nrow = 2, align = "hv")
+
+meplot
+
+## PCA Analyses Figure 3
+
+# prep data for PCA analyses and plots
+alltraits <-  c("kappa","m","v","g","l_b","l_p","mig_time","nb_length","nb_start"
+,"t_mat","km","mig_speed","ubh","uh","l","l_p")
+allpcatraits <- c(alltraits, "sbph", "eggcost", "t_a", "d_b")
+varlabels <- c('kappa' = expression(kappa),
+               'm' = "m",
+               "g" = "g",
+               "v" = "v",
+               #"mig_time" = "mig dur.",
+               #"nb_length" = "nb dur.",
+               "mig_speed" = "mig. speed",
+               "t_mat" = expression(d[b]),
+               "t_a" = expression(t[a]),
+               "d_b" = expression(d[b]),
+               "a_b" = expression(a[b]),
+               "ubh" = expression(u^(b[h])),
+               "sbph" = expression(s[H]^bp),
+               "ubh" = expression(u[H]^b),
+               "uph" = expression(u[H]^p),
+               "l_b" = expression(l[b]),
+               "l_p" = expression(l[p]),
+               "k_m" = expression(dot(k)[m])
+)
+
+# Data reformat for PCA - All parameters
+fullpcadata <-
+  dftop %>%
+  mutate(sbph = ubh/uph) %>%
+  mutate(t_a = ifelse(m > 0, 365 - nb_start - (mig_time), 0)) %>%
+  mutate(d_b = ifelse(m > 0, 365 - nb_length - mig_time, 365)) %>%
+  dplyr::select(all_of(allpcatraits))
+
+# Visualize correlation matrix
+# Full parameter set
+corrplot(cor(scale(fullpcadata)), order = "hclust")
+
+which(cor(scale(fullpcadata)) > 0.95)
+
+cor(scale(fullpcadata))[which(cor(scale(fullpcadata)) > 0.95)]
+
+pcatraits <- c( "v", "kappa", "km", "m", "g", "sbph", "t_mat","mig_time", "m")
+#pcatraits <- c( "g", "v", "sbph", "m", "mig_speed","km","kappa")
+
+# Data reformat for PCA - Reduced redundant parameters
+pcadata <-
+  dftop %>%
+  mutate(sbph = ubh/uph) %>%
+  mutate(t_a = ifelse(m > 0, 365 - nb_start - (mig_time/2), 0)) %>%
+  mutate(d_b = ifelse(m > 0, 365 - nb_length - mig_time, 365)) %>%
+  dplyr::select(all_of(pcatraits))
+
+# Reduced parameter set
+corrplot(cor(scale(pcadata)), order = "hclust")
+
+# run PCA with reduced set
+pca <-prcomp(pcadata, scale. = TRUE, center = T)
+
+# get PCA values and reformat for labels/plotting
+var <- get_pca_var(pca)
+ind <- get_pca_ind(pca)
+
+
+# Scree plot
+fviz_screeplot(pca, addlabels = T)
+# reference line corresponds to the expected value if the contribution where uniform.
+
+# Variable contributions for axes 1,2,3
+pca1c <- fviz_contrib(pca, choice="var", axes = 1, top = 10 )
+pca2c <- fviz_contrib(pca, choice="var", axes = 2, top = 10 )
+pca3c <- fviz_contrib(pca, choice="var", axes = 3, top = 10 )
+
+# plot variable contributions for all 3 axes
+pca1c +
+  pca2c +
+  pca3c
+
+# get PC1,2,& 3 values for each variable for later plotting
+varlist <- lapply(1:length(var), FUN = function(x)
+  pivot_longer(as.data.frame(var[[x]][,1:3]) %>% rownames_to_column(var = "var"), cols = starts_with("Dim"), names_to = "PC", values_to = names(var)[x]))
+
+# condense variable dataframe
+vdata_l <- varlist[[1]]
+for(i in 2:length(varlist)){
+  vdata_l <- full_join(vdata_l, varlist[[i]], by = join_by(PC, var))
+}
+
+# rename Dim. to PC
+vdata_l <-
+  vdata_l %>%
+  mutate(PC = gsub("Dim.", "PC", PC))
+
+# get PC1,2,& 3 values for each individual/observation
+indlist <- lapply(1:length(ind), FUN = function(x)
+  pivot_longer(as.data.frame(ind[[x]][,1:3]) %>% rownames_to_column(var = "ID"), cols = starts_with("Dim"), names_to = "PC", values_to = names(var)[x]))
+
+# condense
+idata_l <- indlist[[1]]
+for(i in 2:length(indlist)){
+  idata_l <- full_join(idata_l, indlist[[i]], by = join_by(PC, ID))
+}
+
+# rename Dim to PC
+idata_l <-
+  idata_l %>%
+  mutate(PC = gsub("Dim.", "PC", PC))
+
+# create dataframe for variable labels
+vdata <- data.frame(
+  x1 = var$coord[,1],
+  x2 = var$coord[,2],
+  x3 = var$coord[,3],
+  x1c = var$contrib[,1],
+  x2c = var$contrib[,2],
+  x3c = var$contrib[,3],
+  var = rownames(var$coord)
+)  %>%
+  mutate(label = recode(var,
+                        "mig_speed" = "speed[mig]",
+                        "t_mat" = "a[p]",
+                        "a_b" = "a[b]",
+                        "mig_time" = "d[m]",
+                        "d_b" = "d[b]",
+                        "ubh" = "u^b[h]",
+                        "sbph" = "s[H]^bp",
+                        "ubh" = "u[H]^b",
+                        "uph" = "u[H]^p",
+                        "l_b" = "l[b]",
+                        "l_p" = "l[p]",
+                        "km" = "dot(k)[m]",
+                        .default = var
+  ))
+
+# add it to variable data frame
+vdata_l <- vdata_l %>%
+  group_by(PC) %>%
+  mutate(alpha = scale(contrib)) %>%
+  ungroup() %>%
+  mutate(label = recode(var,
+                        "mig_speed" = "speed[mig]",
+                        "t_mat" = "a[p]",
+                        "a_b" = "a[b]",
+                        "ubh" = "u^b[h]",
+                        "sbph" = "s[H]^bp",
+                        "ubh" = "u[H]^b",
+                        "uph" = "u[H]^p",
+                        "l_b" = "l[b]",
+                        "l_p" = "l[p]",
+                        .default = var
+  ))
+
+# create dataframe of individual coordinates for all 3 axes
+idata <- data.frame(
+  x = ind$coord[,1],
+  x2 = ind$coord[,2],
+  x3 = ind$coord[,3],
+  id = rownames(ind$coord)
+)
+
+# function to calculate angle for label placement on plot
+labelangle <- function(x,y){
+  x <- paste0("x",x)
+  y <- paste0("x",y)
+  (180/pi) * atan(vdata[,y]/vdata[,x])
+}
+
+# function to calculate hjust for label placement on plot
+labelhjust <- function(x){
+  x <- paste0("x",x)
+  (1 - 1.2 * sign(vdata[,x]))/2
+}
+
+# Vector loading plots for pair-wise combinations of axes
+# PC 1&2
+pcavc_12 <-
+  fviz_pca_var(pca,
+               axes = (c(1,2)),
+               col.var="contrib",
+               title = "PC1, PC2",
+               arrowsize = 1,
+               circlesize = 1,
+               label = "",
+  ) +
+  geom_text_repel(data = vdata, aes(x = x1 *1.05, y = x2*1.05, label = label),
+                  hjust = labelhjust(1),
+
+                  size = 5,
+                  parse = T,
+                  force = 0.001
+  ) +
+  scale_color_viridis_c(direction = -1, end = 0.9) +
+  scale_x_continuous(expand = expansion(mult = 0.1)) +
+  scale_y_continuous(expand = expansion(mult = 0.1))
+
+# PC 1&3
+pcavc_13 <- fviz_pca_var(pca,
+                         axes = (c(1,3)),
+                         col.var="contrib",
+                         #gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                         title = "PC1, PC3",
+                         arrowsize = 1, circlesize = 1, label = "") +
+  geom_text_repel(data = vdata, aes(x = x1 *1.05, y = x3*1.05, label = label),
+                  hjust = labelhjust(1),
+
+                  size = 5,
+                  parse = T,
+                  force = 0.001
+  ) +
+  scale_color_viridis_c(direction = -1, end = 0.9) +
+  scale_x_continuous(expand = expansion(mult = 0.2)) +
+  scale_y_continuous(expand = expansion(mult = 0.2))
+
+# PC 2&3
+pcavc_23 <- fviz_pca_var(pca,
+                         axes = (c(2,3)),
+                         col.var="contrib",
+                         #gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                         title = "PC2, PC3",
+                         arrowsize = 1, circlesize = 1, label = "") +
+  geom_text_repel(data = vdata, aes(x = x2 *1.05, y = x3*1.05, label = label),
+                  hjust = labelhjust(2),
+
+                  size = 5,
+                  parse = T,
+                  force = 0.001
+  ) +
+  scale_color_viridis_c(direction = -1, end = 0.9) +
+  scale_x_continuous(expand = expansion(mult = 0.2)) +
+  scale_y_continuous(expand = expansion(mult = 0.2))
+
+# combine them all
+pcavc_12 +
+  pcavc_13 +
+  pcavc_23 &
+  theme(legend.position = "bottom", aspect.ratio = 1)
+
+# Annotate data frame for plotting individual data points on PCA Bi-plots
+groups <- c("bseason","mdist","wseason","etype","dist")
+pcaplus <-
+  dftop %>%
+  select(all_of(groups)) %>%
+  bind_cols(., idata)
+
+## bi-plots Figure 3
+
+# variable to adjust how far labels are drawn from points (used across all biplots)
+labelscale <- 2
+
+# biplot of PC1&2 grouped by breeding season
+bseason12 <-
+  autoplot(pca,
+           data = dftop,
+           colour = 'bseason',
+           shape = 'bseason',
+           fill = 'bseason',
+           size = 3,
+           alpha = 0.5,
+           loadings = T,
+           loadings.arrow = grid::arrow(length = grid::unit(8, "points")),
+           loadings.colour = "black",
+           scale = 0
+  ) +
+  scale_fill_manual("Breeding Seasonality",values = pal_3) +
+  scale_color_manual("Breeding Seasonality", values = pal_3) +
+  scale_shape_discrete("Breeding Seasonality") +
+  geom_mark_hull(aes(fill = dftop$bseason),color = NA, alpha = 0.3, radius = unit(5, "mm"),) +
+  geom_mark_circle(data = pcaplus %>% filter(bseason == "AS"),
+                   aes(fill = bseason,
+                       x = x,
+                       y = x2),
+                   color = NA) +
+  geom_label(data = vdata, aes(x = x1, y = x2, label = label),
+             parse = T,
+             position = position_lineartrans(scale = labelscale),
+             label.r = unit(0.3, "lines"),
+             label.size = 0,
+             size = 5,
+             fontface = "bold") +
+  theme_half_open() +
+  theme(panel.grid.major.y = element_line(color = "grey90"),
+        panel.grid.major.x = element_line(color = "grey90"),
+        panel.grid.minor.y = element_line(color = "grey90"),
+        panel.grid.minor.x = element_line(color = "grey90"),
+        axis.title = element_text(face = "bold"))
+
+# biplot of PC1&3 grouped by breeding season
+bseason13 <-
+  autoplot(pca,
+           data = dftop,
+           colour = 'bseason',
+           shape = 'bseason',
+           fill = 'bseason',
+           size = 3,
+           alpha = 0.5,
+           loadings = T,
+           loadings.arrow = grid::arrow(length = grid::unit(8, "points")),
+           loadings.colour = "black",
+           scale = 0,
+           y = 3) +
+  scale_fill_manual("Breeding Seasonality",values = pal_3) +
+  scale_color_manual("Breeding Seasonality", values = pal_3) +
+  scale_shape_discrete("Breeding Seasonality") +
+  geom_mark_hull(aes(fill = dftop$bseason),color = NA, alpha = 0.3, radius = unit(5, "mm"),) +
+  geom_mark_circle(data = pcaplus %>% filter(bseason == "AS"),
+                   aes(fill = bseason,
+                       x = x,
+                       y = x3),
+                   color = NA) +
+  geom_label(data = vdata, aes(x = x1, y = x3, label = label),
+             parse = T,
+             position = position_lineartrans(scale = labelscale),
+             label.r = unit(0.3, "lines"),
+             label.size = 0,
+             size = 5,
+             fontface = "bold") +
+  theme_half_open() +
+  theme(panel.grid.major.y = element_line(color = "grey90"),
+        panel.grid.major.x = element_line(color = "grey90"),
+        panel.grid.minor.y = element_line(color = "grey90"),
+        panel.grid.minor.x = element_line(color = "grey90"),
+        axis.title = element_text(face = "bold"))
+
+# biplot of PC2&3 grouped by breeding season
+bseason23 <-
+  autoplot(pca,
+           data = dftop,
+           colour = 'bseason',
+           shape = 'bseason',
+           fill = 'bseason',
+           size = 3,
+           alpha = 0.5,
+           loadings = T,
+           loadings.arrow = grid::arrow(length = grid::unit(8, "points")),
+           loadings.colour = "black",
+           scale = 0,
+           y = 3,
+           x = 2) +
+  scale_fill_manual("Breeding Seasonality",values = pal_3) +
+  scale_color_manual("Breeding Seasonality", values = pal_3) +
+  scale_shape_discrete("Breeding Seasonality") +
+  geom_mark_hull(aes(fill = dftop$bseason),color = NA, alpha = 0.3, radius = unit(5, "mm"),) +
+  geom_mark_circle(data = pcaplus %>% filter(bseason == "AS"),
+                   aes(fill = bseason,
+                       x = x2,
+                       y = x3),
+                   color = NA) +
+  geom_label(data = vdata, aes(x = x2, y = x3, label = label),
+             parse = T,
+             position = position_lineartrans(scale = labelscale),
+             label.r = unit(0.3, "lines"),
+             label.size = 0,
+             size = 5,
+             fontface = "bold") +
+  theme_half_open() +
+  theme(panel.grid.major.y = element_line(color = "grey90"),
+        panel.grid.major.x = element_line(color = "grey90"),
+        panel.grid.minor.y = element_line(color = "grey90"),
+        panel.grid.minor.x = element_line(color = "grey90"),
+        axis.title = element_text(face = "bold"))
+
+# combine them all
+bs <- bseason12 + bseason13 + bseason23 +
+  plot_layout(guides = 'collect')
+
+# plot
+bs
+
+## biplots grouped by energy management strategy
+
+# create a color palette and define point shapes
+etypecol <- viridis::plasma(length(unique(dftop$etype)), direction = -1, end = 0.9)
+etypecol <- c("Buffer" = etypecol[1], "Mitigate" = etypecol[2],"Cope" = etypecol[3])
+etypeshape <- c("Buffer" = 19, "Mitigate" = 16,"Cope" = 17)
+
+# checks if there are any single point groups (if so shaded areas around must be plotted differently)
+sgroup <-
+  pcaplus %>%
+  distinct(x,x2,x3, .keep_all = T) %>%
+  count(as.character(etype)) %>%
+  filter(n < 3)
+
+sgroup <- sgroup[[1]]
+if(length(sgroup) == 0) sgroup <- "NA"
+
+# biplot of PC1&2 grouped by energy management strategy
+etype12 <-
+  autoplot(pca,
+           data = dftop,
+           colour = 'etype',
+           shape = 'etype',
+           fill = 'etype',
+           size = 3,
+           alpha = 0.5,
+           loadings = T,
+           loadings.arrow = grid::arrow(length = grid::unit(8, "points")),
+           loadings.colour = "black",
+           scale = 0
+  ) +
+  geom_mark_hull(data = pcaplus,
+                 aes(fill = etype, x = x, y = x2),
+                 color = NA, alpha = 0.3, radius = unit(5, "mm")) +
+  geom_label(data = vdata, aes(x = x1, y = x2, label = label),
+             parse = T,
+             position = position_lineartrans(scale = labelscale),
+             label.r = unit(0.3, "lines"),
+             label.size = 0,
+             size = 5,
+             fontface = "bold") +
+  scale_fill_manual("Energy Strategy",
+                    values = etypecol,
+  ) +
+  scale_color_manual("Energy Strategy",
+                     values = etypecol) +
+  scale_shape_manual("Energy Strategy",
+                     values = etypeshape) +
+  theme_half_open() +
+  theme(panel.grid.major.y = element_line(color = "grey90"),
+        panel.grid.major.x = element_line(color = "grey90"),
+        panel.grid.minor.y = element_line(color = "grey90"),
+        panel.grid.minor.x = element_line(color = "grey90"),
+        axis.title = element_text(face = "bold"))
+
+# biplot of PC1&3 grouped by energy management strategy
+etype13 <-
+  autoplot(pca,
+           data = dftop,
+           colour = 'etype',
+           shape = 'etype',
+           fill = 'etype',
+           size = 3,
+           alpha = 0.5,
+           loadings = T,
+           loadings.arrow = grid::arrow(length = grid::unit(8, "points")),
+           loadings.colour = "black",
+           scale = 0,
+           y = 3
+  ) +
+  geom_mark_hull(data = pcaplus,
+                 aes(fill = etype, x = x, y = x3),
+                 color = NA, alpha = 0.3, radius = unit(5, "mm")) +
+  geom_label(data = vdata, aes(x = x1, y = x3, label = label),
+             parse = T,
+             position = position_lineartrans(scale = labelscale),
+             label.r = unit(0.3, "lines"),
+             label.size = 0,
+             size = 5,
+             fontface = "bold") +
+  scale_fill_manual("Energy Strategy",
+                    values = etypecol,
+  ) +
+  scale_color_manual("Energy Strategy",
+                     values = etypecol) +
+  scale_shape_manual("Energy Strategy",
+                     values = etypeshape) +
+  theme_half_open() +
+  theme(panel.grid.major.y = element_line(color = "grey90"),
+        panel.grid.major.x = element_line(color = "grey90"),
+        panel.grid.minor.y = element_line(color = "grey90"),
+        panel.grid.minor.x = element_line(color = "grey90"),
+        axis.title = element_text(face = "bold"))
+
+# biplot of PC2&3 grouped by energy management strategy
+etype23 <-
+  autoplot(pca,
+           data = dftop,
+           colour = 'etype',
+           shape = 'etype',
+           fill = 'etype',
+           size = 3,
+           alpha = 0.5,
+           loadings = T,
+           loadings.arrow = grid::arrow(length = grid::unit(8, "points")),
+           loadings.colour = "black",
+           scale = 0,
+           y = 3,
+           x = 2
+  ) +
+  geom_mark_hull(data = pcaplus,
+                 aes(fill = etype, x = x2, y = x3),
+                 color = NA, alpha = 0.3, radius = unit(5, "mm")) +
+  geom_label(data = vdata, aes(x = x2, y = x3, label = label),
+             parse = T,
+             position = position_lineartrans(scale = labelscale),
+             label.r = unit(0.3, "lines"),
+             label.size = 0,
+             size = 5,
+             fontface = "bold") +
+  scale_fill_manual("Energy Strategy",
+                    values = etypecol,
+  ) +
+  scale_color_manual("Energy Strategy",
+                     values = etypecol) +
+  scale_shape_manual("Energy Strategy",
+                     values = etypeshape) +
+  theme_half_open() +
+  theme(panel.grid.major.y = element_line(color = "grey90"),
+        panel.grid.major.x = element_line(color = "grey90"),
+        panel.grid.minor.y = element_line(color = "grey90"),
+        panel.grid.minor.x = element_line(color = "grey90"),
+        axis.title = element_text(face = "bold"))
+
+# merge and plot
+es <- etype12 + etype13 + etype23 +
+  plot_layout(guides = 'collect')
+es
+
+## bi-plots grouped by migration distance
+
+# create color palette and define point shapes
+mdistcol <- viridis::viridis(length(unique(dftop$mdist)), direction = 1, end = 0.9)
+mdistcol <- c("LD" = mdistcol[1], "MD" = mdistcol[2],"SD" = mdistcol[3],"NM" = mdistcol[4])
+mdistshape <- c("LD" = 19, "MD" = 16,"SD" = 17,"NM" = 8)
+
+# check for single point groups
+sgroup <-
+  pcaplus %>%
+  distinct(x,x2,x3, .keep_all = T) %>%
+  count(as.character(mdist)) %>%
+  filter(n < 3)
+
+sgroup <- sgroup[[1]]
+if(length(sgroup) == 0) sgroup <- "NA"
+
+# biplot of PC1&2 grouped by migration distance
+mdist12 <-
+  autoplot(pca,
+           data = dftop,
+           colour = 'mdist',
+           shape = 'mdist',
+           fill = 'mdist',
+           size = 3,
+           alpha = 0.5,
+           loadings = T,
+           loadings.arrow = grid::arrow(length = grid::unit(8, "points")),
+           loadings.colour = "black",
+           scale = 0
+  ) +
+  geom_mark_hull(data = pcaplus %>% filter(mdist != sgroup),
+                 aes(fill = mdist, x = x, y = x2),
+                 color = NA, alpha = 0.3, radius = unit(5, "mm")) +
+  geom_mark_ellipse(data = pcaplus %>% filter(mdist == sgroup),
+                    aes(fill = mdist, x = x, y = x2),
+                    color = NA, alpha = 0.3, radius = unit(5, "mm")) +
+  geom_label(data = vdata, aes(x = x1, y = x2, label = label),
+             parse = T,
+             position = position_lineartrans(scale = labelscale),
+             label.r = unit(0.3, "lines"),
+             label.size = 0,
+             size = 5,
+             fontface = "bold") +
+  scale_fill_manual("Migration Distance",
+                    values = mdistcol,
+  ) +
+  scale_color_manual("Migration Distance",
+                     values = mdistcol) +
+  scale_shape_manual("Migration Distance",
+                     values = mdistshape) +
+  theme_half_open() +
+  theme(panel.grid.major.y = element_line(color = "grey90"),
+        panel.grid.major.x = element_line(color = "grey90"),
+        panel.grid.minor.y = element_line(color = "grey90"),
+        panel.grid.minor.x = element_line(color = "grey90"),
+        axis.title = element_text(face = "bold"))
+
+# biplot of PC1&3 grouped by migration distance
+mdist13 <-
+  autoplot(pca,
+           data = dftop,
+           colour = 'mdist',
+           shape = 'mdist',
+           fill = 'mdist',
+           size = 3,
+           alpha = 0.5,
+           loadings = T,
+           loadings.arrow = grid::arrow(length = grid::unit(8, "points")),
+           loadings.colour = "black",
+           scale = 0,
+           y = 3
+  ) +
+  geom_mark_hull(data = pcaplus %>% filter(mdist != sgroup),
+                 aes(fill = mdist, x = x, y = x3),
+                 color = NA, alpha = 0.3, radius = unit(5, "mm")) +
+  geom_mark_ellipse(data = pcaplus %>% filter(mdist == sgroup),
+                    aes(fill = mdist, x = x, y = x3),
+                    color = NA, alpha = 0.3, radius = unit(5, "mm")) +
+  geom_label(data = vdata, aes(x = x1, y = x3, label = label),
+             parse = T,
+             position = position_lineartrans(scale = labelscale),
+             label.r = unit(0.3, "lines"),
+             label.size = 0,
+             size = 5,
+             fontface = "bold") +
+  scale_fill_manual("Migration Distance",
+                    values = mdistcol,
+  ) +
+  scale_color_manual("Migration Distance",
+                     values = mdistcol) +
+  scale_shape_manual("Migration Distance",
+                     values = mdistshape) +
+  theme_half_open() +
+  theme(panel.grid.major.y = element_line(color = "grey90"),
+        panel.grid.major.x = element_line(color = "grey90"),
+        panel.grid.minor.y = element_line(color = "grey90"),
+        panel.grid.minor.x = element_line(color = "grey90"),
+        axis.title = element_text(face = "bold"))
+
+# biplot of PC2&3 grouped by migration distance
+mdist23 <-
+  autoplot(pca,
+           data = dftop,
+           colour = 'mdist',
+           shape = 'mdist',
+           fill = 'mdist',
+           size = 3,
+           alpha = 0.5,
+           loadings = T,
+           loadings.arrow = grid::arrow(length = grid::unit(8, "points")),
+           loadings.colour = "black",
+           scale = 0,
+           y = 3,
+           x = 2
+  ) +
+  geom_mark_hull(data = pcaplus %>% filter(mdist != sgroup),
+                 aes(fill = mdist, x = x2, y = x3),
+                 color = NA, alpha = 0.3, radius = unit(5, "mm")) +
+  geom_mark_ellipse(data = pcaplus %>% filter(mdist == sgroup),
+                    aes(fill = mdist, x = x2, y = x3),
+                    color = NA, alpha = 0.3, radius = unit(5, "mm")) +
+  geom_label(data = vdata, aes(x = x2, y = x3, label = label),
+             parse = T,
+             position = position_lineartrans(scale = labelscale),
+             label.r = unit(0.3, "lines"),
+             label.size = 0,
+             size = 5,
+             fontface = "bold") +
+  scale_fill_manual("Migration Distance",
+                    values = mdistcol,
+  ) +
+  scale_color_manual("Migration Distance",
+                     values = mdistcol) +
+  scale_shape_manual("Migration Distance",
+                     values = mdistshape) +
+  theme_half_open() +
+  theme(panel.grid.major.y = element_line(color = "grey90"),
+        panel.grid.major.x = element_line(color = "grey90"),
+        panel.grid.minor.y = element_line(color = "grey90"),
+        panel.grid.minor.x = element_line(color = "grey90"),
+        axis.title = element_text(face = "bold"))
+
+# merge and plot
+md <- mdist12 + mdist13 + mdist23 +
+  plot_layout(guides = 'collect')
+md
+
+## bi-plot grouped by non-breeding seasonality
+# biplot of PC1&2 grouped by non-breeding seasonality
+wseason12 <-
+  autoplot(pca,
+           data = dftop,
+           colour = 'wseason',
+           shape = 'wseason',
+           fill = 'wseason',
+           size = 3,
+           alpha = 0.5,
+           loadings = T,
+           loadings.arrow = grid::arrow(length = grid::unit(8, "points")),
+           loadings.colour = "black",
+           scale = 0
+  ) +
+  geom_mark_hull(data = pcaplus,
+                 aes(fill = wseason, x = x, y = x2),
+                 color = NA, alpha = 0.3, radius = unit(5, "mm")) +
+  geom_label(data = vdata, aes(x = x1, y = x2, label = label),
+             parse = T,
+             position = position_lineartrans(scale = labelscale),
+             label.r = unit(0.3, "lines")) +
+  scale_fill_manual("Non-Breeding Seasonality",values = pal_3) +
+  scale_color_manual("Non-Breeding Seasonality", values = pal_3) +
+  scale_shape_discrete("Non-Breeding Seasonality") +
+  theme_half_open() +
+  theme(panel.grid.major.y = element_line(color = "grey90"),
+        panel.grid.major.x = element_line(color = "grey90"),
+        panel.grid.minor.y = element_line(color = "grey90"),
+        panel.grid.minor.x = element_line(color = "grey90"),)
+
+# biplot of PC1&3 grouped by non-breeding seasonality
+wseason13 <-
+  autoplot(pca,
+           data = dftop,
+           colour = 'wseason',
+           shape = 'wseason',
+           fill = 'wseason',
+           size = 3,
+           alpha = 0.5,
+           loadings = T,
+           loadings.arrow = grid::arrow(length = grid::unit(8, "points")),
+           loadings.colour = "black",
+           scale = 0,
+           y = 3
+  ) +
+  geom_mark_hull(data = pcaplus,
+                 aes(fill = wseason, x = x, y = x3),
+                 color = NA, alpha = 0.3, radius = unit(5, "mm")) +
+  geom_label(data = vdata, aes(x = x1, y = x3, label = label),
+             parse = T,
+             position = position_lineartrans(scale = labelscale),
+             label.r = unit(0.3, "lines")) +
+  scale_fill_manual("Non-Breeding Seasonality",values = pal_3) +
+  scale_color_manual("Non-Breeding Seasonality", values = pal_3) +
+  scale_shape_discrete("Non-Breeding Seasonality") +
+  theme_half_open() +
+  theme(panel.grid.major.y = element_line(color = "grey90"),
+        panel.grid.major.x = element_line(color = "grey90"),
+        panel.grid.minor.y = element_line(color = "grey90"),
+        panel.grid.minor.x = element_line(color = "grey90"))
+
+# biplot of PC2&3 grouped by non-breeding seasonality
+wseason23 <-
+  autoplot(pca,
+           data = dftop,
+           colour = 'wseason',
+           shape = 'wseason',
+           fill = 'wseason',
+           size = 3,
+           alpha = 0.5,
+           loadings = T,
+           loadings.arrow = grid::arrow(length = grid::unit(8, "points")),
+           loadings.colour = "black",
+           scale = 0,
+           y = 3,
+           x = 2
+  ) +
+  geom_mark_hull(data = pcaplus,
+                 aes(fill = wseason, x = x2, y = x3),
+                 color = NA, alpha = 0.3, radius = unit(5, "mm")) +
+  geom_label(data = vdata, aes(x = x2, y = x3, label = label),
+             parse = T,
+             position = position_lineartrans(scale = labelscale),
+             label.r = unit(0.3, "lines")) +
+  scale_fill_manual("Non-Breeding Seasonality",values = pal_3) +
+  scale_color_manual("Non-Breeding Seasonality", values = pal_3) +
+  scale_shape_discrete("Non-Breeding Seasonality") +
+  theme_half_open() +
+  theme(panel.grid.major.y = element_line(color = "grey90"),
+        panel.grid.major.x = element_line(color = "grey90"),
+        panel.grid.minor.y = element_line(color = "grey90"),
+        panel.grid.minor.x = element_line(color = "grey90"),)
+
+# merge and plot
+ws <- wseason12 + wseason13 + wseason23 +
+  plot_layout(guides = 'collect')
+ws
+
+# 1D PC plots
+
+# PC1 - parameter loadings plot
+pc1var <-
+  ggplot(pca$rotation, aes(x = PC1, y = row.names(pca$rotation))) +
+  geom_vline(aes(xintercept = 0)) +
+  geom_bar(stat = "identity",
+           show.legend = FALSE) +
+  scale_y_discrete(labels = c('kappa' = expression(kappa),
+                              'm' = "m",
+                              "g" = "g",
+                              "v" = "v",
+                              "mig_time" = "mig dur.",
+                              "nb_length" = "nb dur.",
+                              "a_b" = expression(a[b]),
+                              "ubh" = expression(u^b[h]),
+                              "uph" = expression(u^p[h]),
+                              "d_b" = expression(d[b]),
+                              "t_mat" = expression(a[p])
+                              #"l_b" = expression(l[b]),
+                              #"l_p" = expression(l[p])
+  )) +
+
+  labs(y = "Parameters") +
+  theme_clean() +
+  theme(plot.background = element_blank(),
+        axis.title = element_text(face = "bold", size = 14),
+        aspect.ratio = 3/4,
+        axis.text.y = element_text(size = 12)
+  )
+
+# PC2 - parameter loadings plot
+pc2var <-
+  ggplot(pca$rotation, aes(x = PC2, y = row.names(pca$rotation))) +
+  geom_vline(aes(xintercept = 0)) +
+  geom_bar(stat = "identity",
+           show.legend = FALSE) +
+  scale_y_discrete(labels = c('kappa' = expression(kappa),
+                              'm' = "m",
+                              "g" = "g",
+                              "v" = "v",
+                              "mig_time" = "mig dur.",
+                              "nb_length" = "nb dur.",
+                              "a_b" = expression(a[b]),
+                              "ubh" = expression(u^b[h]),
+                              "uph" = expression(u^p[h]),
+                              "d_b" = expression(d[b]),
+                              "t_mat" = expression(a[p])
+                              #"l_b" = expression(l[b]),
+                              #"l_p" = expression(l[p])
+  )) +
+
+  labs(y = "Parameters") +
+  theme_clean() +
+  theme(plot.background = element_blank(),
+        axis.title = element_text(face = "bold", size = 14),
+        aspect.ratio = 3/4,
+        axis.text.y = element_text(size = 12)
+  )
+
+# PC3 - parameter loadings plot
+pc3var <-
+  ggplot(pca$rotation, aes(x = PC3, y = row.names(pca$rotation))) +
+  geom_vline(aes(xintercept = 0)) +
+  geom_bar(stat = "identity",
+           show.legend = FALSE) +
+  scale_y_discrete(labels = c('kappa' = expression(kappa),
+                              'm' = "m",
+                              "g" = "g",
+                              "v" = "v",
+                              "mig_time" = "mig dur.",
+                              "nb_length" = "nb dur.",
+                              "a_b" = expression(a[b]),
+                              "ubh" = expression(u^b[h]),
+                              "uph" = expression(u^p[h]),
+                              "d_b" = expression(d[b]),
+                              "t_mat" = expression(a[p])
+                              #"l_b" = expression(l[b]),
+                              #"l_p" = expression(l[p])
+  )) +
+
+  labs(y = "Parameters") +
+  theme_clean() +
+  theme(plot.background = element_blank(),
+        axis.title = element_text(face = "bold", size = 14),
+        axis.text.y = element_text(size = 12),
+        aspect.ratio = 3/4
+  )
+
+# PC1 - ind values plot
+pc1 <- ggplot(pcaplus) +
+  geom_vline(aes(xintercept = 0)) +
+  geom_point(aes(x = x,
+                 y = interaction(dist/2, factor(bseason,
+                                                levels = c("AS","MS","HS"),
+                                                labels = c("None","Mid","High"))),
+                 color = bseason), size = 5) +
+  scale_y_discrete(guide = guide_axis_nested()) +
+  scale_color_manual(values = pal_3, guide = "none") +
+  labs(y = "Migratory strategy") +
+  theme_clean() +
+  theme(axis.text.y = element_text(angle = 90, size = 12, hjust = 0.5),
+        axis.title = element_text(face = "bold", size = 14),
+        axis.line.y = element_line(linewidth=1),
+        axis.line.x = element_line(linewidth=1),
+        aspect.ratio = 3/4,
+        plot.background = element_blank()
+  )
+
+# PC2 - ind values plot
+pc2 <- ggplot(pcaplus) +
+  geom_vline(aes(xintercept = 0)) +
+  geom_point(aes(x = x2,
+                 y = interaction(dist/2, factor(bseason,
+                                                levels = c("AS","MS","HS"),
+                                                labels = c("None","Mid","High"))),
+                 color = bseason), size = 5) +
+  scale_y_discrete(guide = guide_axis_nested()) +
+  scale_color_manual(values = pal_3, guide = "none") +
+  labs(y = "Migratory strategy") +
+  theme_clean() +
+  theme(axis.text.y = element_text(angle = 90, size = 12, hjust = 0.5),
+        axis.title = element_text(face = "bold", size = 14),
+        axis.line.y = element_line(linewidth=1),
+        axis.line.x = element_line(linewidth=1),
+        aspect.ratio = 3/4,
+        plot.background = element_blank()
+  )
+
+# PC3 - ind values plot
+pc3 <- ggplot(pcaplus) +
+  geom_vline(aes(xintercept = 0)) +
+  geom_point(aes(x = x3,
+                 y = interaction(dist/2, factor(bseason,
+                                                levels = c("AS","MS","HS"),
+                                                labels = c("None","Mid","High"))),
+                 color = bseason), size = 5) +
+  scale_y_discrete(guide = guide_axis_nested()) +
+  #scale_x_continuous(expand=expansion(add = c(1,0.2)), ) +
+  scale_color_manual(values = pal_3, guide = "none") +
+  labs(y = "Migratory strategy") +
+  theme_clean() +
+  theme(axis.text.y = element_text(angle = 90, size = 12, hjust = 0.5),
+        axis.title = element_text(face = "bold", size = 14),
+        axis.line.y = element_line(linewidth=1),
+        axis.line.x = element_line(linewidth=1),
+        aspect.ratio = 3/4,
+        plot.background = element_blank()
+  )
+
+# match up x limits
+pc1 <- pc1 + xlim(-4,4) + xlab("PC1")
+pc2 <- pc2 + xlim(-4,4) + xlab("PC2")
+pc3 <- pc3 + xlim(-4,4) + xlab("PC3")
+
+# combine parameter loadings plot + ind values plots for each PC
+plot_grid(pc1, pc1var, byrow = T, ncol = 1, axis = "tlbr", align = "v")
+plot_grid(pc2, pc2var, byrow = T, ncol = 1, axis = "tlbr", align = "v")
+plot_grid(pc3, pc3var, byrow = T, ncol = 1, axis = "tlbr", align = "v")
+
+### In silica experiment
+
+# get params for high seasonality breeders and clean up to run in IBM
+popdata_HS <-
+  dftop %>%
+  filter(bseason == "HS") %>%
+  mutate(m = 0, mig_time = 0, nb_length = 0) %>%
+  dplyr::select(all_of(c(modelparams$e_traits, modelparams$m_traits, "migtype", "movetype", "eb", "ID", "etype","dist")))
+
+# reset population size to match input data
+modelparams$popsize <- nrow(popdata_HS)
+
+# run optimized values in IBM and label as a fixed run for plotting
+tHSresults <- GAEMMfixedparams(popdata_HS, modelparams) %>%
+  filter(alive) %>%
+  mutate(run = "fixed")
+
+# get params for mid seasonality breeders and clean up to run in IBM
+popdata_MS <-
+  dftop %>%
+  filter(bseason == "MS") %>%
+  mutate(m = 0, mig_time = 0, nb_length = 0) %>%
+  dplyr::select(all_of(c(modelparams$e_traits, modelparams$m_traits, "mig_speed", "migtype", "movetype","eb","ID", "etype", "dist")))
+
+# reset population size (# of indv) and locations to match
+modelparams$startloc <- 40
+modelparams$endloc <- 40
+modelparams$popsize <- nrow(popdata_MS)
+
+# run optimized values in IBM with no movement and label as a fixed run for plotting
+tMSresults <- GAEMMfixedparams(popdata_MS, modelparams) %>%
+  filter(alive) %>%
+  mutate(run = "fixed")
+
+# create and new data frame with results from fixed position run and with movement allowed
+data_t <- dftop %>%
+  #filter(migtype == "NM_MS" | migtype == "NM_HS") %>%
+  mutate(run = "ga") %>%
+  dplyr::select(all_of(names(tHSresults))) %>%
+  bind_rows(tHSresults, tMSresults) %>%
+  mutate(bseason = case_when(
+    startloc == 80 ~ "HS",
+    startloc == 40 ~ "MS",
+    startloc == 0 ~ "AS"
+  )) %>%
+  mutate(mdist = case_when(
+    migtype == "LD_HS" ~ "LD",
+    migtype == "LD_MS" ~"LD",
+    migtype == "MD_AS" ~ "MD",
+    migtype == "MD_MS" ~ "MD",
+    migtype == "SD_AS" ~ "SD",
+    migtype == "SD_MS" ~ "SD",
+    migtype == "NM_HS" ~ "NM",
+    migtype == "NM_MS" ~ "NM",
+    migtype == "NM_AS" ~ "NM"
+  )) %>%
+  mutate(mdist = factor(mdist,levels = c("NM","LD","MD","SD"))) %>%
+  mutate(fscaled = scale(fitness, center = F),
+         run = factor(run, levels = c("ga","fixed")))
+
+# stationary data for comparison
+nmfitness <- data_t %>%
+  filter(movetype == "NM" & run == "fixed") %>%
+  group_by(bseason) %>%
+  slice_max(fitness, n = 1, with_ties = F) %>%
+  ungroup() %>%
+  #mutate(fscaled = 0) %>%
+  mutate(dist = factor(dist), bs = "Breeding Seasonality")
+
+
+# set up color palette and shapes for plot
+pcacol <- c("NM_HS" = pal_3[1],
+            "NM_MS" = pal_3[2],
+            "NM_AS" = pal_3[3],
+            "SD_MS" = "grey60",
+            "SD_AS" = "grey60",
+            "MD_AS" = "grey30",
+            "MD_MS" = "grey30",
+            "LD_HS" = "black",
+            "LD_MS" = "black")
+
+pcashape <- c("NM_HS" = 15,
+              "NM_MS" = 15,
+              "NM_AS" = 15,
+              "SD_MS" = 16,
+              "SD_AS" = 17,
+              "MD_AS" = 16,
+              "MD_MS" = 17,
+              "LD_HS" = 16,
+              "LD_MS" = 17)
+
+# set up to color panel labels
+texts <- list(NULL, element_text(colour = pal_3[1]), element_text(colour = pal_3[2]))
+strip <- strip_nested(
+  text_x = texts
+)
+
+# plot results - Figure 4
+p <-
+  data_t %>%
+  mutate(dist = factor(dist), bs = "Breeding Seasonality") %>%
+  mutate(bseason = factor(bseason, levels = c("HS","MS"))) %>%
+  filter(movetype == "M") %>%
+  ggplot(aes(x = run, y = fscaled)) +
+  geom_hline(data = nmfitness[1,], aes(yintercept = fscaled), color = pal_3[1], size = 2) +
+  geom_hline(data = nmfitness[2,], aes(yintercept = fscaled), color = pal_3[2], size = 2) +
+  geom_line(aes(color = dist, linetype = etype, group = ID), size = 1) +
+  geom_point(size = 3, aes(color = dist)) +
+  scale_y_continuous(name = "Scaled Fecundity") +
+  scale_x_discrete(expand = c(0.1,0.1), labels = c("ga" = "Migrate", "fixed" = "Remain"), guide = "axis_nested", position = "bottom") +
+  facet_nested(~bs + bseason, labeller = labeller(bseason = c("HS" = "High", "MS" = "Mid")),
+               nest_line = element_line(color = "black"), strip = strip, drop = T) +
+  scale_color_grey(end = 0, start = 0.7, name = "Migration\nDistance") +
+  scale_linetype(name = "Energy\nStrategy") +
+  xlab("") +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        strip.background = element_blank(),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        strip.text = element_text(hjust = 0.5, face = "bold", size = 14),
+        axis.text.x = element_text(hjust = 0.5, face = "bold", size = 12),
+        strip.placement = "outside",
+        legend.position = "right")
+
+p
