@@ -605,7 +605,7 @@ We simulated every combination of 3 different values of popsize, replacerate, cr
 | 10000        | 1            | 0.75          | 0.5          |
 +--------------+--------------+---------------+--------------+
 
-We then used a custom shiny app to visualize fecundity max, mean and variance over generation time for each set of runs. In most runs, optimization slowed considerably after \~200 generations but variance between runs prompted us to take a nested approach to optimization, to combat the algorithm getting stuck on local maxima or insufficiently exploring the sample space. This app is available in the code repository on github.
+We then used a custom shiny app to visualize fecundity max, mean and variance over generation time for each set of runs. In most runs, optimization slowed considerably after \~200 generations but variance between runs prompted us to take a nested approach to optimization, to combat the algorithm getting stuck on local maxima or insufficiently exploring the sample space. This app is available in the [code repository on github](https://github.com/allipierce/Pierce_et_al_2023_MigrationPOL/).
 
 We also visualized parameter values of the top performing solution and the number of unique solutions over generation time. We used visualizations of the parameter values to ensure the routine was exploring the sample space by examining the range of values over generation time and used the visualization of unique solutions overtime to validate crossover and mutation were generating variation in solutions and premature convergence did not occur.
 
