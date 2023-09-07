@@ -67,7 +67,6 @@ dftop <- read_rds("./data/dftop.Rds")
 dfsteps <- read_rds("./data/dfsteps.Rds")
 ```
 
-
 ## Figure 2: Movement path and energy plots
 
 ```{r fig2}
@@ -582,11 +581,10 @@ pcaplus <-
   bind_cols(., idata)
 ```
 
-
-
 # Bi-plots: Figure 3
 
 ## Grouped by energy management strategy
+
 ```{r fig.width=9,fig.height = 3}
 ## biplots grouped by energy management strategy
 
@@ -927,6 +925,7 @@ mdist23
 ```
 
 ## Grouped by breeding season
+
 ```{r fig.width=9,fig.height = 3}
 bseason12 <-
   autoplot(pca,
@@ -1047,8 +1046,8 @@ bseason13 +
 bseason23
 ```
 
-
 ## Grouped by non-breeding seasonality
+
 ```{r fig.width=9,fig.height = 3}
 # biplot of PC1&2 grouped by non-breeding seasonality
 wseason12 <-
@@ -1353,6 +1352,7 @@ plot_grid(pc1em, pc1md, pc1var, pc2em, pc2md, pc2var, pc3em, pc3md, pc3var, byro
 ```
 
 ## Parameter values
+
 ```{r fig.height=9}
 paramsem <- dftop %>%
   pivot_longer(cols = pcatraits, names_to = "var", values_to = "value") %>%
@@ -1467,8 +1467,8 @@ plot_grid(paramsem,paramsmd, byrow = F, ncol = 2, axis = "tlbr", align = "v")
 plot_grid(paramsbs,paramsnbs, byrow = F, ncol = 2, axis = "tlbr", align = "v")
 ```
 
-
 ### In silica experiment
+
 ```{r fig5}
 # get params for high seasonality breeders and clean up to run in IBM
 popdata_HS <-

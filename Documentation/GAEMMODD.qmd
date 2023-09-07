@@ -595,26 +595,26 @@ We used graphical analysis of simulation tests to determine optimization paramet
 
 We simulated every combination of 3 different values of popsize, replacerate, crossoverrate, and mutation rate for 500 generations for a movement scenario and a non-movement scenario. We ran 5 optimization runs for each combination.
 
-+----------------+----------------+----------------+----------------+
-| popsize        | replacerate    | crossoverrate  | mutationrate   |
-+================+================+================+================+
-| 2500           | 0.5            | 0.25           | 0.1            |
-+----------------+----------------+----------------+----------------+
-| 5000           | 0.75           | 0.5            | 0.25           |
-+----------------+----------------+----------------+----------------+
-| 10000          | 1              | 0.75           | 0.5            |
-+----------------+----------------+----------------+----------------+
++---------------+---------------+---------------+---------------+
+| popsize       | replacerate   | crossoverrate | mutationrate  |
++===============+===============+===============+===============+
+| 2500          | 0.5           | 0.25          | 0.1           |
++---------------+---------------+---------------+---------------+
+| 5000          | 0.75          | 0.5           | 0.25          |
++---------------+---------------+---------------+---------------+
+| 10000         | 1             | 0.75          | 0.5           |
++---------------+---------------+---------------+---------------+
 
 We then used a custom shiny app to visualize fecundity max, mean and variance over generation time for each set of runs. In most runs, optimization slowed considerably after \~200 generations but variance between runs prompted us to take a nested approach to optimization, to combat the algorithm getting stuck on local maxima or insufficiently exploring the sample space.
 
 We also visualized parameter values of the top performing solution and the number of unique solutions over generation time. We used visualizations of the parameter values to ensure the routine was exploring the sample space by examining the range of values over generation time and used the visualization of unique solutions overtime to validate crossover and mutation were generating variation in solutions and premature convergence did not occur.
 
-We performed 11 runs in parallel in sets of 100 and compared the top 5 solutions across conditions. To ensure reproducibility, we set seeds for random number generation. An arbitrary seed value was chosen for each set to generate seeds for each run such that the seed for a run was the same for each migratory strategy but different across runs. Graphical comparison of the top 5 solutions after 300 runs demonstrated that most runs converge on similar solutions (@fig-300runs). We conservatively chose to run an additional 700 runs, which demonstrated a similar visual result (@fig-1100runs).
+We performed 10 runs in parallel in sets of 100 and compared the top 5 solutions across conditions. To ensure reproducibility, we set seeds for random number generation. An arbitrary seed value was chosen for each set to generate seeds for each run such that the seed for a run was the same for each migratory strategy but different across runs. Graphical comparison of the top 5 solutions after 300 runs demonstrated that most runs converge on similar solutions (@fig-300runs). We conservatively chose to run an additional 700 runs, which demonstrated a similar visual result (@fig-1000runs).
 
-![Fecundity of top 5 solutions per strategy from 300 runs (3 sets of 100)](300runs.png){#fig-300runs height="4in"}
+![Fecundity of top 5 solutions per strategy from 300 runs (3 sets of 100)](300runs.png){#fig-300runs}
 
-![Fecundity of top 5 solutions per strategy from 1100 runs (11 sets of 100). Some sets not represented because they did not have any solutions with the top 5 fecundity values.](1100runs.png){#fig-1100runs height="4in"}
+![Fecundity of top 5 solutions per strategy from 1000 runs (11 sets of 100). Some sets not represented because they did not have any solutions with the top 5 fecundity values.](1000runs.png){#fig-1000runs}
 
-To further validate relative differences in fecundity across movement scenarios were not an artifact of non-convergence or unequal exploration of the solution space, we performed an additional set of 180 runs per migratory strategy pre-initialized with parameters from five of the highest fecundity solutions for each strategy from the initial 1100 runs to equalize exploration of the solution space between strategies. Pre-initialized runs identified fecundity optimums in the range of randomly initialized runs suggesting similar exploration of the solution space @fig-preinit.
+To further validate relative differences in fecundity across movement scenarios were not an artifact of non-convergence or unequal exploration of the solution space, we performed an additional set of 180 runs per migratory strategy pre-initialized with parameters from five of the highest fecundity solutions for each strategy from the initial 1000 runs to equalize exploration of the solution space between strategies. Pre-initialized runs identified fecundity optimums in the range of randomly initialized runs suggesting similar exploration of the solution space @fig-preinit.
 
-![Fecundity values of top 5 solutions from 90 pre-initialized runs shown as large black dots. Overlapping colored dots show fecundity values for all solutions from initial 1100 runs.](preinit.png){#fig-preinit height="3in"}
+![Fecundity values of top 1% of solutions from intial 1000 runs  shown as large black dots and pre-initialized runs shown aslarge black asterisks. Overlapping colored dots show fecundity values for all solutions from initial 1000 runs.](preinit.png){#fig-preinit height="3in"}
