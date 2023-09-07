@@ -1,0 +1,10 @@
+---
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This repository contains the R model and analyses code for Pierce AP, Yanco SW, & Wunder MB (2023) Seasonal migration alters energetic trade-off optimization and shapes life history.
+
