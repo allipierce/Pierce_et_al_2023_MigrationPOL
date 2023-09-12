@@ -611,9 +611,9 @@ We also visualized parameter values of the top performing solution and the numbe
 
 We performed 10 runs in parallel in sets of 100 and compared the top 5 solutions across conditions. To ensure reproducibility, we set seeds for random number generation. An arbitrary seed value was chosen for each set to generate seeds for each run such that the seed for a run was the same for each migratory strategy but different across runs. Graphical comparison of solutions after 300 runs demonstrated that most runs converge on similar solutions (@fig-300runs). We conservatively chose to run an additional 700 runs, which demonstrated a similar visual result (@fig-1000runs).
 
-![Fecundity of solutions per strategy from 300 runs (3 sets of 100)](300runs.png){#fig-300runs}
+![Fecundity of solutions per strategy from 300 runs (3 sets of 100)](300runs.png){#fig-300runs width="400"}
 
-![Fecundity of solutions per strategy from 1000 runs (10 sets of 100)](1000runs.png){#fig-1000runs}
+![Fecundity of solutions per strategy from 1000 runs (10 sets of 100)](1000runs.png){#fig-1000runs width="400"}
 
 To further validate relative differences in fecundity across movement scenarios were not an artifact of non-convergence or unequal exploration of the solution space, we performed an additional set of 180 runs per migratory strategy pre-initialized with parameters from five of the highest fecundity solutions for each strategy from the initial 1000 runs to equalize exploration of the solution space between strategies. Pre-initialized runs identified fecundity optimums in the range of randomly initialized runs suggesting similar exploration of the solution space with some improvement on absolute value of optimized fecundity but similar patterns of relative differences between strategies. @fig-preinit.
 

@@ -1685,9 +1685,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb14-60"><a href="#cb14-60" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"km"</span> <span class="ot">=</span> <span class="st">"dot(k)[m]"</span>,</span>
 <span id="cb14-61"><a href="#cb14-61" aria-hidden="true" tabindex="-1"></a>                        <span class="at">.default =</span> var</span>
 <span id="cb14-62"><a href="#cb14-62" aria-hidden="true" tabindex="-1"></a>  )) <span class="sc">%&gt;%</span></span>
-<span id="cb14-63"><a href="#cb14-63" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(dist, var, value, bseason) <span class="sc">%&gt;%</span></span>
+<span id="cb14-63"><a href="#cb14-63" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(dist, var, value, bseason, movetype) <span class="sc">%&gt;%</span></span>
 <span id="cb14-64"><a href="#cb14-64" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>() <span class="sc">+</span></span>
-<span id="cb14-65"><a href="#cb14-65" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">y =</span> bseason, <span class="at">x =</span> value, <span class="at">col =</span> bseason)) <span class="sc">+</span></span>
+<span id="cb14-65"><a href="#cb14-65" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">y =</span> bseason, <span class="at">x =</span> value, <span class="at">col =</span> bseason, <span class="at">shape =</span> movetype)) <span class="sc">+</span></span>
 <span id="cb14-66"><a href="#cb14-66" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_col</span>(var<span class="sc">~</span>.,<span class="at">scales =</span> <span class="st">"free"</span>, <span class="at">labeller =</span> label_parsed) <span class="sc">+</span></span>
 <span id="cb14-67"><a href="#cb14-67" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_alpha</span>(<span class="at">guide =</span> <span class="st">"none"</span>) <span class="sc">+</span></span>
 <span id="cb14-68"><a href="#cb14-68" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">"Breeding Seasonality"</span>) <span class="sc">+</span></span>
@@ -1698,7 +1698,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb14-73"><a href="#cb14-73" aria-hidden="true" tabindex="-1"></a>        <span class="at">axis.line.y =</span> <span class="fu">element_line</span>(<span class="at">linewidth=</span><span class="dv">1</span>),</span>
 <span id="cb14-74"><a href="#cb14-74" aria-hidden="true" tabindex="-1"></a>        <span class="at">axis.line.x =</span> <span class="fu">element_line</span>(<span class="at">linewidth=</span><span class="dv">1</span>),</span>
 <span id="cb14-75"><a href="#cb14-75" aria-hidden="true" tabindex="-1"></a>        <span class="at">plot.background =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb14-76"><a href="#cb14-76" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.position =</span> <span class="st">"bottom"</span></span>
+<span id="cb14-76"><a href="#cb14-76" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.position =</span> <span class="st">"bottom"</span>, <span class="at">legend.box=</span><span class="st">"vertical"</span></span>
 <span id="cb14-77"><a href="#cb14-77" aria-hidden="true" tabindex="-1"></a>  )</span>
 <span id="cb14-78"><a href="#cb14-78" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-79"><a href="#cb14-79" aria-hidden="true" tabindex="-1"></a>paramsnbs <span class="ot">&lt;-</span> dftop <span class="sc">%&gt;%</span></span>
@@ -1711,9 +1711,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb14-86"><a href="#cb14-86" aria-hidden="true" tabindex="-1"></a>                        <span class="st">"km"</span> <span class="ot">=</span> <span class="st">"dot(k)[m]"</span>,</span>
 <span id="cb14-87"><a href="#cb14-87" aria-hidden="true" tabindex="-1"></a>                        <span class="at">.default =</span> var</span>
 <span id="cb14-88"><a href="#cb14-88" aria-hidden="true" tabindex="-1"></a>  )) <span class="sc">%&gt;%</span></span>
-<span id="cb14-89"><a href="#cb14-89" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(dist, var, value, wseason) <span class="sc">%&gt;%</span></span>
+<span id="cb14-89"><a href="#cb14-89" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(dist, var, value, wseason, movetype) <span class="sc">%&gt;%</span></span>
 <span id="cb14-90"><a href="#cb14-90" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>() <span class="sc">+</span></span>
-<span id="cb14-91"><a href="#cb14-91" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">y =</span> wseason, <span class="at">x =</span> value, <span class="at">col =</span> wseason)) <span class="sc">+</span></span>
+<span id="cb14-91"><a href="#cb14-91" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">y =</span> wseason, <span class="at">x =</span> value, <span class="at">col =</span> wseason, <span class="at">shape =</span> movetype)) <span class="sc">+</span></span>
 <span id="cb14-92"><a href="#cb14-92" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_col</span>(var<span class="sc">~</span>.,<span class="at">scales =</span> <span class="st">"free"</span>, <span class="at">labeller =</span> label_parsed) <span class="sc">+</span></span>
 <span id="cb14-93"><a href="#cb14-93" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_alpha</span>(<span class="at">guide =</span> <span class="st">"none"</span>) <span class="sc">+</span></span>
 <span id="cb14-94"><a href="#cb14-94" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">"non-breeding Seasonality"</span>) <span class="sc">+</span></span>
@@ -1724,7 +1724,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb14-99"><a href="#cb14-99" aria-hidden="true" tabindex="-1"></a>        <span class="at">axis.line.y =</span> <span class="fu">element_line</span>(<span class="at">linewidth=</span><span class="dv">1</span>),</span>
 <span id="cb14-100"><a href="#cb14-100" aria-hidden="true" tabindex="-1"></a>        <span class="at">axis.line.x =</span> <span class="fu">element_line</span>(<span class="at">linewidth=</span><span class="dv">1</span>),</span>
 <span id="cb14-101"><a href="#cb14-101" aria-hidden="true" tabindex="-1"></a>        <span class="at">plot.background =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb14-102"><a href="#cb14-102" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.position =</span> <span class="st">"bottom"</span></span>
+<span id="cb14-102"><a href="#cb14-102" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.position =</span> <span class="st">"bottom"</span>, <span class="at">legend.box=</span><span class="st">"vertical"</span></span>
 <span id="cb14-103"><a href="#cb14-103" aria-hidden="true" tabindex="-1"></a>  )</span>
 <span id="cb14-104"><a href="#cb14-104" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-105"><a href="#cb14-105" aria-hidden="true" tabindex="-1"></a><span class="co">#paramsem</span></span>
