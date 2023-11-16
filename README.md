@@ -1,5 +1,6 @@
 
 # Seasonal migration alters energetic trade-off optimization and shapes life history.
+
 ![DOI](https://zenodo.org/badge/688632903.svg)](https://zenodo.org/doi/10.5281/zenodo.10145975)
 
 This repository contains the R model and analyses code for Pierce AP,
